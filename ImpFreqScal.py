@@ -1,8 +1,20 @@
+##Implementacion de lock-in por software para caracterizacion de una impedancia
+##Lucas M. Grigolato - Jose I. Quinteros
+##Laboratorio II
+##Instituto Balseiro - 2018
+
+##Este programa captura dos señales de un osciloscopio, y aplica el proceso de
+##amplificación lock-in utilizando como señal de referencia la tensión de excitación
+##de un circuito que tiene una impedancia desconocida. Tomando mediciones variando la
+##frecuencia de 1kHz a 100kHz, y conocida la configuración del circuito, puede 
+##medirse la impedancia para cada valor de frecuencia.
+
 from RigolClass import RigolDS2000,RigolDG4000
 from scipy.signal import hilbert
 import numpy as np
 
 def writeDoubleToFile(wav1,wav2,path):
+    #esta función toma dos estructuras de tipo wav, y las exporta a un archivo
     file=open(path,'w')
 
     #escribo los  dos preamble con todas las caract como header
