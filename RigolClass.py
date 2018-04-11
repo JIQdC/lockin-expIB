@@ -27,6 +27,7 @@ class RigolDS2000(object):
     #Funciones de control y adquisicion de un osciloscopio
     #Rigol DS2000 Series
     def __init__(self):
+        #reemplazar la dirección por la propia del instrumento
         self.instr=visa.ResourceManager(system).open_resource('USB0::0x1AB1::0x04B0::DS2D163351641::INSTR')
     def ID(self):
         #devuelve el identificador del dispositivo
@@ -134,6 +135,7 @@ class RigolDG4000(object):
     #Funciones de control de un generador de señales
     #Rigol DG4000 Series
     def __init__(self):
+        #reemplazar la dirección por la propia del instrumento
         self.instr=visa.ResourceManager(system).open_resource('USB0::0x1AB1::0x0641::DG4E163251558::INSTR')
 
     def ID(self):
