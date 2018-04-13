@@ -1,176 +1,132 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": 6,
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stdout",
-     "output_type": "stream",
-     "text": [
-      "Sucess!\n"
-     ]
-    }
-   ],
-   "source": [
-    "import numpy as np\n",
-    "import csv\n",
-    "\n",
-    "class waveform:\n",
-    "    def __init__(self):\n",
-    "        self.t=np.arange\n",
-    "        self.vi=np.arange\n",
-    "        self.vs=np.arange\n",
-    "        self.freq=int\n",
-    "        \n",
-    "class medicion:\n",
-    "    def __init__(self):\n",
-    "        self.modvz=float\n",
-    "        self.dmodvz=float\n",
-    "        self.phivz=float\n",
-    "        self.dphivz=float\n",
-    "        self.zl=None\n",
-    "        self.rl=float\n",
-    "        self.drl=float\n",
-    "        self.xcl=float\n",
-    "        self.dxcl=float\n",
-    "        self.vs=float\n",
-    "\n",
-    "def leerArchivo(freq):\n",
-    "    with open('data'+str(int(freq))+'.csv') as csvfile:\n",
-    "        readCSV = csv.reader(csvfile, delimiter=',')\n",
-    "        T = []\n",
-    "        Vi = []\n",
-    "        Vs = []\n",
-    "\n",
-    "        for row in readCSV:\n",
-    "            if(row[0][0]==\"0\"):\n",
-    "                \n",
-    "                t = float(row[0])\n",
-    "                vi = float(row[1])\n",
-    "                vs = float(row[2])\n",
-    "\n",
-    "                T.append(t)\n",
-    "                Vi.append(vi)\n",
-    "                Vs.append(vs)\n",
-    "        \n",
-    "    data=waveform()\n",
-    "    \n",
-    "    data.t=T\n",
-    "    data.vi=Vi\n",
-    "    data.vs=Vs\n",
-    "    data.freq=freq\n",
-    "    \n",
-    "    return data\n",
-    "\n",
-    "def impedanciaFreq(data):\n",
-    "\n",
-    "    #defino Ri como la resist de entrada medida\n",
-    "    Ri=98646\n",
-    "    \n",
-    "    #antes de procesar, para quitar el posible offset de los datos, les resto su promedio\n",
-    "    viprom=np.average(data.vi)\n",
-    "    vsprom=np.average(data.vs)\n",
-    "    data.vi=data.vi-viprom\n",
-    "    data.vs=data.vs-vsprom\n",
-    "\n",
-    "    #defino Vs (amplitud del generador de ondas) como el maximo valor de la señal de excitacion\n",
-    "    Vs=np.amax(data.vs)\n",
-    "\n",
-    "    #genero la referencia normalizando la señal de excitacion con su amplitud\n",
-    "    ref=data.vs/Vs\n",
-    "    #para la referencia en cuadratura, uso transformada de Hilbert\n",
-    "    refq=-np.imag(hilbert(ref))\n",
-    "\n",
-    "    #proceso de lock-in: multiplico la señal de salida por las referencias...\n",
-    "    y1=data.vi*ref\n",
-    "    y2=data.vi*refq\n",
-    "    #... y filtro pasabajo con un promediador\n",
-    "    y3=np.average(y1)\n",
-    "    y4=np.average(y2)\n",
-    "    \n",
-    "    #errores de y3,y4\n",
-    "    dy3=0.00045*y3\n",
-    "    dy4=0.00045*y4\n",
-    "    \n",
-    "    #el error de Vs es el error del maximo (1,5%)\n",
-    "    dVs=0.015*Vs\n",
-    "    \n",
-    "    med=medicion()\n",
-    "    #obtengo el modulo y fase del voltaje sobre la carga, y por lo tanto el complejo Vz\n",
-    "    med.modvz=2*(y3**2+y4**2)**0.5\n",
-    "    med.phivz=np.arctan(y4/y3)\n",
-    "    \n",
-    "    #saco los errores con propagacion de errores\n",
-    "    med.dmodvz=2*np.sqrt((y3*dy3)**2+(y4*dy4)**2)/np.sqrt(y3**2+y4**2)\n",
-    "    med.dphivz=np.sqrt((y4*dy3)**2+(y3*dy4)**2)/(y3**2+y4**2)\n",
-    "    \n",
-    "    #calculo resistencia, reactancia con sus errores\n",
-    "    A=Ri*med.modvz*np.cos(med.phivz)*Vs\n",
-    "    B=Ri*med.modvz**2\n",
-    "    C=2*Vs*med.modvz*np.cos(med.phivz)\n",
-    "    D=med.modvz**2\n",
-    "    dA=Ri*np.sqrt((Vs*np.cos(med.phivz)*med.dmodvz)**2+(Vs*med.modvz*np.sin(med.phivz)*med.dphivz)**2+\n",
-    "                  (med.modvz*np.cos(med.phivz)*dVs)**2)\n",
-    "    dB=2*B*med.dmodvz/med.modvz\n",
-    "    dD=2*D*med.dmodvz/med.modvz\n",
-    "    dC=2*Vs*np.sqrt((np.cos(med.phivz)*med.dmodvz)**2+(med.modvz*np.sin(med.phivz)*med.dphivz)**2)\n",
-    "    E=A-B\n",
-    "    dE=np.sqrt(dA**2+dB**2)\n",
-    "    H=Vs**2\n",
-    "    dH=2*H*dVs/Vs\n",
-    "    F=H-C+D\n",
-    "    dF=np.sqrt(dC**2+dD**2+dH**2)\n",
-    "    \n",
-    "    med.rl=E/F\n",
-    "    med.drl=med.rl*np.sqrt((dE/E)**2+(dF/F)**2)\n",
-    "    \n",
-    "    G=Ri*med.modvz*Vs*np.sin(med.phivz)\n",
-    "    dG=Ri*np.sqrt((Vs*np.sin(med.phivz)*med.dmodvz)**2+(Vs*med.modvz*np.cos(med.phivz)*med.dphivz)**2+\n",
-    "                 (med.modvz*np.sin(med.phivz)*dVs)**2)\n",
-    "    \n",
-    "    med.xcl=G/F\n",
-    "    med.dxcl=med.xcl*np.sqrt((dG/G)**2+(dF/F)**2)\n",
-    "    return med\n",
-    "\n",
-    "outp=open('errores.csv','w')\n",
-    "\n",
-    "outp.write(\"RL,dRL,XCL,dXCL\\n\")\n",
-    "for i in range(0,100):\n",
-    "    f=1000+i*1000\n",
-    "    raw=leerArchivo(f)\n",
-    "    datos=impedanciaFreq(raw)\n",
-    "    outp.write(\"%.6f,%.6f,%.6f,%.6f\\n\" %(datos.rl,datos.drl,datos.xcl,datos.dxcl))\n",
-    "    \n",
-    "outp.close()\n",
-    "\n",
-    "print(\"Success!\")\n",
-    "    \n",
-    "\n",
-    "\n"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.6.4"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 2
-}
+import numpy as np
+import csv
+
+class waveform:
+    def __init__(self):
+        self.t=np.arange
+        self.vi=np.arange
+        self.vs=np.arange
+        self.freq=int
+        
+class medicion:
+    def __init__(self):
+        self.modvz=float
+        self.dmodvz=float
+        self.phivz=float
+        self.dphivz=float
+        self.zl=None
+        self.rl=float
+        self.drl=float
+        self.xcl=float
+        self.dxcl=float
+        self.vs=float
+
+def leerArchivo(freq):
+    with open('data'+str(int(freq))+'.csv') as csvfile:
+        readCSV = csv.reader(csvfile, delimiter=',')
+        T = []
+        Vi = []
+        Vs = []
+
+        for row in readCSV:
+            if(row[0][0]=="0"):
+                
+                t = float(row[0])
+                vi = float(row[1])
+                vs = float(row[2])
+
+                T.append(t)
+                Vi.append(vi)
+                Vs.append(vs)
+        
+    data=waveform()
+    
+    data.t=T
+    data.vi=Vi
+    data.vs=Vs
+    data.freq=freq
+    
+    return data
+
+def impedanciaFreq(data):
+
+    #defino Ri como la resist de entrada medida
+    Ri=98646
+    
+    #antes de procesar, para quitar el posible offset de los datos, les resto su promedio
+    viprom=np.average(data.vi)
+    vsprom=np.average(data.vs)
+    data.vi=data.vi-viprom
+    data.vs=data.vs-vsprom
+
+    #defino Vs (amplitud del generador de ondas) como el maximo valor de la señal de excitacion
+    Vs=np.amax(data.vs)
+
+    #genero la referencia normalizando la señal de excitacion con su amplitud
+    ref=data.vs/Vs
+    #para la referencia en cuadratura, uso transformada de Hilbert
+    refq=-np.imag(hilbert(ref))
+
+    #proceso de lock-in: multiplico la señal de salida por las referencias...
+    y1=data.vi*ref
+    y2=data.vi*refq
+    #... y filtro pasabajo con un promediador
+    y3=np.average(y1)
+    y4=np.average(y2)
+    
+    #errores de y3,y4
+    dy3=0.00045*y3
+    dy4=0.00045*y4
+    
+    #el error de Vs es el error del maximo (1,5%)
+    dVs=0.015*Vs
+    
+    med=medicion()
+    #obtengo el modulo y fase del voltaje sobre la carga, y por lo tanto el complejo Vz
+    med.modvz=2*(y3**2+y4**2)**0.5
+    med.phivz=np.arctan(y4/y3)
+    
+    #saco los errores con propagacion de errores
+    med.dmodvz=2*np.sqrt((y3*dy3)**2+(y4*dy4)**2)/np.sqrt(y3**2+y4**2)
+    med.dphivz=np.sqrt((y4*dy3)**2+(y3*dy4)**2)/(y3**2+y4**2)
+    
+    #calculo resistencia, reactancia con sus errores
+    A=Ri*med.modvz*np.cos(med.phivz)*Vs
+    B=Ri*med.modvz**2
+    C=2*Vs*med.modvz*np.cos(med.phivz)
+    D=med.modvz**2
+    dA=Ri*np.sqrt((Vs*np.cos(med.phivz)*med.dmodvz)**2+(Vs*med.modvz*np.sin(med.phivz)*med.dphivz)**2+
+                  (med.modvz*np.cos(med.phivz)*dVs)**2)
+    dB=2*B*med.dmodvz/med.modvz
+    dD=2*D*med.dmodvz/med.modvz
+    dC=2*Vs*np.sqrt((np.cos(med.phivz)*med.dmodvz)**2+(med.modvz*np.sin(med.phivz)*med.dphivz)**2)
+    E=A-B
+    dE=np.sqrt(dA**2+dB**2)
+    H=Vs**2
+    dH=2*H*dVs/Vs
+    F=H-C+D
+    dF=np.sqrt(dC**2+dD**2+dH**2)
+    
+    med.rl=E/F
+    med.drl=med.rl*np.sqrt((dE/E)**2+(dF/F)**2)
+    
+    G=Ri*med.modvz*Vs*np.sin(med.phivz)
+    dG=Ri*np.sqrt((Vs*np.sin(med.phivz)*med.dmodvz)**2+(Vs*med.modvz*np.cos(med.phivz)*med.dphivz)**2+
+                 (med.modvz*np.sin(med.phivz)*dVs)**2)
+    
+    med.xcl=G/F
+    med.dxcl=med.xcl*np.sqrt((dG/G)**2+(dF/F)**2)
+    return med
+
+outp=open('errores.csv','w')
+
+outp.write("RL,dRL,XCL,dXCL\n")
+for i in range(0,100):
+    f=1000+i*1000
+    raw=leerArchivo(f)
+    datos=impedanciaFreq(raw)
+    outp.write("%.6f,%.6f,%.6f,%.6f\n" %(datos.rl,datos.drl,datos.xcl,datos.dxcl))
+    
+outp.close()
+
+print("Success!")
